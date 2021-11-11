@@ -1,0 +1,238 @@
+public void ConfigureServices(IServiceCollection services)
+       {
+          services.AddControllerWithViews();
+          services.AddRazorPages();
+          
+          app.UseAuthentication();
+          app.UseEndpoints(endpoints =>
+                    {
+                      endpoints.MapControllerRoute(
+                          name: "default",
+                          pattern: "
+           {controller=Home}/{action=Index}/{id?}");
+                       endpoints.MapRazorPages();
+                    });
+        }
+
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
+
+namespace LoginAuth.Areas.Identity.Data
+{
+     //Add profile date for application users by adding properties to the ApplicationUser class
+     public class ApplicationUser : IdentityUser
+     {
+        [PersonalDate]
+        [Column(TypeName="nvarchar(100)")]
+        public string FirstName { get; set; }
+
+        [PersonalData]
+        [Column(TypeName = "navarchar(100)')]
+        public string LastName { get; set; }
+     }
+}
+
+public class InputModel  
+        {  
+            [Required]  
+            [DataType(DataType.Text)]  
+            [Display(Name = "First Name")]  
+            public string FirstName { get; set; }  
+  
+            [Required]  
+            [DataType(DataType.Text)]  
+            [Display(Name = "Last Name")]  
+            public string LirstName { get; set; }  
+  
+            [Required]  
+            [EmailAddress]  
+            [Display(Name = "Email")]  
+            public string Email { get; set; }  
+  
+            [Required]  
+            [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]  
+            [DataType(DataType.Password)]  
+            [Display(Name = "Password")]  
+            public string Password { get; set; }  
+  
+            [DataType(DataType.Password)]  
+            [Display(Name = "Confirm password")]  
+            [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]  
+            public string ConfirmPassword { get; set; }  
+        } 
+
+public async Task<IActionResult> OnPostAsync(string returnUrl = null)  
+        {  
+            returnUrl = returnUrl ?? Url.Content("~/");  
+            ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();  
+            if (ModelState.IsValid)  
+            {  
+                var user = new ApplicationUser { UserName = Input.Email, Email = Input.Email,FirstName = Input.FirstName,LirstName = Input.LirstName };  
+                var result = await _userManager.CreateAsync(user, Input.Password);  
+                if (result.Succeeded)  
+                {  
+                    _logger.LogInformation("User created a new account with password.");  
+  
+                    var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);  
+                    code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));  
+                    var callbackUrl = Url.Page(  
+                        "/Account/ConfirmEmail",  
+                        pageHandler: null,  
+                        values: new { area = "Identity", userId = user.Id, code = code },  
+                        protocol: Request.Scheme);  
+  
+                    await _emailSender.SendEmailAsync(Input.Email, "Confirm your email",  
+                        $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");  
+  
+                    if (_userManager.Options.SignIn.RequireConfirmedAccount)  
+                    {  
+                        return RedirectToPage("RegisterConfirmation", new { email = Input.Email });  
+                    }  
+                    else  
+                    {  
+                        await _signInManager.SignInAsync(user, isPersistent: false);  
+                        return LocalRedirect(returnUrl);  
+                    }  
+                }  
+                foreach (var error in result.Errors)  
+                {  
+                    ModelState.AddModelError(string.Empty, error.Description);  
+                }  
+            }  
+  
+            // If we got this far, something failed, redisplay form  
+            return Page();  
+        }  
+
+@page  
+@model RegisterModel  
+@{  
+    ViewData["Title"] = "Register";  
+}  
+  
+<h1>@ViewData["Title"]</h1>  
+  
+<div class="row">  
+    <div class="col-md-4">  
+        <form asp-route-returnUrl="@Model.ReturnUrl" method="post">  
+            <h4>Create a new account.</h4>  
+            <hr />  
+            <div asp-validation-summary="All" class="text-danger"></div>  
+            <div class="form-group">  
+                <label asp-for="Input.FirstName"></label>  
+                <input asp-for="Input.FirstName" class="form-control" />  
+                <span asp-validation-for="Input.FirstName" class="text-danger"></span>  
+            </div>  
+            <div class="form-group">  
+                <label asp-for="Input.LirstName"></label>  
+                <input asp-for="Input.LirstName" class="form-control" />  
+                <span asp-validation-for="Input.LirstName" class="text-danger"></span>  
+            </div>  
+            <div class="form-group">  
+                <label asp-for="Input.Email"></label>  
+                <input asp-for="Input.Email" class="form-control" />  
+                <span asp-validation-for="Input.Email" class="text-danger"></span>  
+            </div>  
+            <div class="form-group">  
+                <label asp-for="Input.Password"></label>  
+                <input asp-for="Input.Password" class="form-control" />  
+                <span asp-validation-for="Input.Password" class="text-danger"></span>  
+            </div>  
+            <div class="form-group">  
+                <label asp-for="Input.ConfirmPassword"></label>  
+                <input asp-for="Input.ConfirmPassword" class="form-control" />  
+                <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>  
+            </div>  
+            <button type="submit" class="btn btn-primary">Register</button>  
+        </form>  
+    </div>  
+      
+</div>  
+  
+@section Scripts {  
+    <partial name="_ValidationScriptsPartial" />  
+}  
+
+<!DOCTYPE html>  
+<html lang="en">  
+<head>  
+    <meta charset="utf-8" />  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />  
+    <title>@ViewData["Title"] - LoginAuth</title>  
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />  
+    <link rel="stylesheet" href="~/css/site.css" />  
+</head>  
+<body>  
+    <header>  
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">  
+            <div class="container">  
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">LoginAuth</a>  
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse" aria-controls="navbarSupportedContent"  
+                        aria-expanded="false" aria-label="Toggle navigation">  
+                    <span class="navbar-toggler-icon"></span>  
+                </button>  
+                <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse">  
+                    <partial name="_LoginPartial.cshtml" />  
+                </div>  
+            </div>  
+        </nav>  
+    </header>  
+    <div class="container">  
+        <main role="main" class="pb-3">  
+            @RenderBody()  
+        </main>  
+    </div>  
+  
+    <footer class="border-top footer text-muted">  
+        <div class="container">  
+            © 2020 - LoginAuth - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>  
+        </div>  
+    </footer>  
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>  
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>  
+    <script src="~/js/site.js" asp-append-version="true"></script>  
+    @RenderSection("Scripts", required: false)  
+</body>  
+</html>
+
+using System;  
+using System.Collections.Generic;  
+using System.Diagnostics;  
+using System.Linq;  
+using System.Threading.Tasks;  
+using Microsoft.AspNetCore.Mvc;  
+using Microsoft.Extensions.Logging;  
+using LoginAuth.Models;  
+using Microsoft.AspNetCore.Authorization;  
+  
+namespace LoginAuth.Controllers  
+{  
+    [Authorize]  
+    public class HomeController : Controller  
+    {  
+        private readonly ILogger<HomeController> _logger;  
+  
+        public HomeController(ILogger<HomeController> logger)  
+        {  
+            _logger = logger;  
+        }  
+  
+        public IActionResult Index()  
+        {  
+            return View();  
+        }  
+  
+        public IActionResult Privacy()  
+        {  
+            return View();  
+        }  
+  
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]  
+        public IActionResult Error()  
+        {  
+            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });  
+        }  
+    }  
+}  
+
+  
